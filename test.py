@@ -41,18 +41,21 @@ def test_get_examples():
     print(next(gen2))
 
 def test_preprocessing(): 
-    shutil.rmtree("./data_preprocessed/")
+    try: 
+        shutil.rmtree("./data_preprocessed/")
+    except:
+        pass
     tokenizer = load_tokenizer()
-    run_processes(tokenizer, 2, 5)
+    run_processes(tokenizer, 2, 100)
 
 def test_preprocessing_results():
+    tokenizer = load_tokenizer()
     src_dir = "./data_preprocessed/"
     file = os.listdir(src_dir)[0]
-    print(src_dir + file)
-    res = torch.load(src_dir + file, weights_only=False)
-    res2 = np.array(res)
-    print(res2.shape)
+    data0 = torch.load(src_dir + file, weights_only=False)[0]
+    print(tokenizer.decode(data0))
 
 
-test_preprocessing()
+
+# test_preprocessing()
 test_preprocessing_results()
