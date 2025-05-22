@@ -1,35 +1,58 @@
 import os
-
+import shutil
+import numpy as np
+import torch
 import tokenizers
 from tokenizer.tokenizer import train, create_corpus, load_tokenizer
 from pretraining.dataset import ExampleBuilder,IterableOwtDataset
-
-# create_corpus()
-# train()
+from pretraining.preprocess import run_processes
 
 
-
-tokenizer = load_tokenizer()
-print(tokenizer("We are very happy to show you the 🤗 Transformers library", return_tensors="pt"))
-# print(tokenizer.vocab["[MASK]"])
-
-dataset = iter(IterableOwtDataset(map(lambda s: "data/" + s ,os.listdir("./data"))))
-# print(next(dataset))
-# print(next(dataset))
+def test_train_corpus(): 
+    create_corpus()
+    train()
 
 
-builder = ExampleBuilder(tokenizer.vocab, 256)
+
+def test_get_examples(): 
+    tokenizer = load_tokenizer()
+    print(tokenizer("We are very happy to show you the 🤗 Transformers library", return_tensors="pt"))
+    print(tokenizer.vocab["[MASK]"])
+
+    dataset = iter(IterableOwtDataset(map(lambda s: "data/" + s ,os.listdir("./data"))))
+    print(next(dataset))
+    print(next(dataset))
 
 
-def get_data(): 
-    while True: 
-        token_ids = tokenizer(next(dataset)['text'])['input_ids']
-        example = builder.add_line(token_ids)
-        if (example): 
-            yield example
+    builder = ExampleBuilder(tokenizer.vocab, 256)
 
-gen2 = get_data()
-# print(next(gen2))
-# print(next(gen2))
-# print(next(gen2))
-# print(next(gen2))
+
+    def get_data(): 
+        while True: 
+            token_ids = tokenizer(next(dataset)['text'])['input_ids']
+            example = builder.add_line(token_ids)
+            if (example): 
+                yield example
+
+    gen2 = get_data()
+    print(next(gen2))
+    print(next(gen2))
+    print(next(gen2))
+    print(next(gen2))
+
+def test_preprocessing(): 
+    shutil.rmtree("./data_preprocessed/")
+    tokenizer = load_tokenizer()
+    run_processes(tokenizer, 2, 5)
+
+def test_preprocessing_results():
+    src_dir = "./data_preprocessed/"
+    file = os.listdir(src_dir)[0]
+    print(src_dir + file)
+    res = torch.load(src_dir + file, weights_only=False)
+    res2 = np.array(res)
+    print(res2.shape)
+
+
+test_preprocessing()
+test_preprocessing_results()
