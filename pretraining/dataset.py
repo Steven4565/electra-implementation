@@ -1,16 +1,20 @@
 import torch
 import random
-from itertools import chain
-from datasets import IterableDataset, load_from_disk, Dataset
+from datasets import IterableDataset
 
 random.seed(42)
 
-# class BertTrainingDataset(torch.utils.data.IterableDataset):
-#     def __init__(self, ): 
-#         self.owt_dataset = owt_dataset
-#
-#     def __iter__(self): 
-#         return 
+class BertTrainingDataset(torch.utils.data.IterableDataset):
+    def __init__(self, owt_dataset_gen, builder): 
+        self.owt_dataset_gen = owt_dataset_gen
+        self.builder = builder
+
+    def __iter__(self): 
+        while True: 
+            token_ids = next(self.owt_dataset_gen)
+            example = self.builder.add_line(token_ids)
+            if (example): 
+                yield example
 
 class ExampleBuilder:
     """Given a stream of input text, creates pretraining examples."""
@@ -125,3 +129,7 @@ class IterableOwtDataset(IterableDataset):
             yield from self.load_file(dir)
 
 
+def cycle_generator(gen): 
+    while True: 
+        for x in gen: 
+            yield x
