@@ -6,6 +6,8 @@ import multiprocessing
 from itertools import batched
 from functools import partial
 
+from tokenizer.tokenizer import load_tokenizer
+
 
 def run_processes(tokenizer, processes: int, n_tensors_per_file: int):
     src_dir = "./data/"
@@ -45,3 +47,10 @@ def tokenize_process(tokenizer, src_dir, files):
             features.append(tokenized)
 
     return features
+
+
+if __name__ == "__main__": 
+    # TODO: fill this in
+    # tokenizer = load_tokenizer()
+    # run_processes()
+    pass

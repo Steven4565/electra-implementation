@@ -9,4 +9,5 @@ class ElectraModel(torch.nn.Module):
 
 
     def forward(self, input, vocab): 
-        pass
+        mask_tensor = [random.random() < 0.15 for _ in range(len(input))]
+        
