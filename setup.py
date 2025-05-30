@@ -18,8 +18,9 @@ setup(
   install_requires=[
     'torch>=1.6.0',
     'transformers>=3.0.2',
+    'datasets>=2.0.0',
     'scipy',
-    'sklearn',
+    'scikit-learn',
     'tqdm',
     'six',
     'numpy'

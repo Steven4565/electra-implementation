@@ -134,3 +134,6 @@ data*
 output
 
 pyrightconfig.json
+
+data/**
+.DS_Store
