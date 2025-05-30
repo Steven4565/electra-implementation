@@ -222,9 +222,10 @@ class Electra(nn.Module):
         # gather metrics
         with torch.no_grad():
             gen_predictions = torch.argmax(logits, dim=-1)
-            disc_predictions = torch.round((torch.sign(disc_logits) + 1.0) * 0.5)
-            gen_acc = (gen_labels[mask] == gen_predictions[mask]).float().mean()
-            disc_acc = 0.5 * (disc_labels[mask] == disc_predictions[mask]).float().mean() + 0.5 * (disc_labels[~mask] == disc_predictions[~mask]).float().mean()
+            disc_predictions = (torch.sigmoid(disc_logits) > 0.5).float()
+            gen_acc = (input[mask] == gen_predictions[mask]).float().mean()
+            non_padded_mask = (input != self.pad_token_id)
+            disc_acc = (disc_labels[non_padded_mask] == disc_predictions[non_padded_mask]).float().mean()
 
         # return weighted sum of losses
         return Results(
