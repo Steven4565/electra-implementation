@@ -107,7 +107,7 @@ def train(rank, args):
     
     logger.info(f"Loading dataset from {args.data_dir}")
     ds_train = load_text_dataset(data_dir=args.data_dir, tokenizer=tokenizer)
-    ds_train = wrap_example_builder(ds_train, vocab=tokenizer.vocab, max_length=args.data_max_seq_length)
+    ds_train = wrap_example_builder(ds_train, tokenizer=tokenizer, max_length=args.data_max_seq_length)
 
     pad_token_id = tokenizer.vocab['[PAD]']
     mask_token_id = tokenizer.vocab['[MASK]']
