@@ -3,16 +3,12 @@ import sys
 import argparse
 import logging
 import glob
-from pathlib import Path
-import json
 import random
 from tqdm import tqdm
 from datasets import load_dataset
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-from pretraining.tokenization import FullTokenizer
 
 logger = logging.getLogger(__name__)
 
@@ -157,8 +153,6 @@ def main():
     parser = argparse.ArgumentParser(description="Preprocess text data for ELECTRA pretraining")
     parser.add_argument("--input_files", type=str, required=False, default=None,
                         help="Path pattern to raw input files (e.g., 'data/raw/*.txt'). If not provided, downloads from Hugging Face.")
-    parser.add_argument("--huggingface_dataset", type=str, default="wikipedia",
-                        help="Name of the dataset to download from Hugging Face (e.g., 'wikipedia', 'bookcorpus')")
     parser.add_argument("--huggingface_dataset_config", type=str, default="20220301.en",
                         help="Configuration for the Hugging Face dataset if needed (e.g., '20220301.en' for wikipedia)")
     parser.add_argument("--output_dir", type=str, required=True,

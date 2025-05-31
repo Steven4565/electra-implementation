@@ -29,6 +29,10 @@ myelectra/
 └── README.md                # This README
 ```
 
+## TODO: 
+- generate vocab file
+- create dataset downloader for testing vs full training
+
 ## Usage
 
 ### Installation
@@ -37,12 +41,23 @@ myelectra/
 pip install -e .
 ```
 
-### Preprocessing Data
+### Download datasets
+Run the following command to download the full openwebtext dataset.
+```bash
+python pretraining/download_datasets.py
+```
+For development, download the subset of openwebtext with 
+```bash
+python pretraining/download_datasets.py --dev
+```
 
+
+### Preprocessing Data
+Run the following command to tokenize and preprocess the dataset. This will also create a `vocab.txt` file
 ```bash
 python pretraining/preprocess.py \
-  --input_files "path/to/raw/data/*.txt" \
-  --output_dir data/text_data \
+  --input_files "data/openwebtext/" \
+  --output_dir data/preprocessed \
   --vocab_file data/vocab.txt
 ```
 
