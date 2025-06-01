@@ -8,26 +8,6 @@ ELECTRA is a new method for self-supervised language representation learning. In
 
 This approach, called replaced token detection, is more sample efficient than masked language modeling (MLM) used in BERT. The task is defined over all input tokens rather than just a small subset (e.g., 15% for BERT), so the model learns from more training signals per example.
 
-## Project Structure
-
-```
-myelectra/
-├── myelectra_pytorch/        # Core model implementation
-│   ├── __init__.py
-│   └── electra_pytorch.py    # Main ELECTRA model
-├── pretraining/             # Pretraining code
-│   ├── arg.py               # Argument handling
-│   ├── dataset.py           # Dataset processing
-│   ├── preprocess.py        # Data preprocessing
-│   ├── pretrain.py          # Pretraining script
-│   ├── small_generator.json # Generator model config
-│   ├── small_discriminator.json  # Discriminator model config
-│   └── tokenization.py      # Tokenization utilities
-├── examples/                # Examples and evaluation
-│   └── eval_glue.py         # GLUE evaluation script
-├── setup.py                 # Setup script
-└── README.md                # This README
-```
 
 ## TODO: 
 - generate vocab file
@@ -38,11 +18,11 @@ myelectra/
 ### Installation
 
 ```bash
-pip install -e .
+pip install -r requirements.txt
 ```
 
 ### Download datasets
-Run the following command to download the full openwebtext dataset.
+Run the following command to download the FULL openwebtext dataset.
 ```bash
 python pretraining/download_datasets.py
 ```
@@ -52,12 +32,11 @@ python pretraining/download_datasets.py --dev
 ```
 
 
-### Preprocessing Data
-Run the following command to tokenize and preprocess the dataset. This will also create a `vocab.txt` file
+### Train tokenizer
+Run the following command to train a tokenizer
 ```bash
-python pretraining/preprocess.py \
-  --input_files "data/openwebtext/" \
-  --output_dir data/preprocessed \
+python pretraining/tokenizer.py \
+  --dataset_dir data/openwebtext/ \
   --vocab_file data/vocab.txt
 ```
 
