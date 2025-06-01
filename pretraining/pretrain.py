@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import sys
 import logging
 import random
@@ -10,14 +11,19 @@ import numpy as np
 import torch
 from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.data.dataloader import DataLoader
-from transformers import AutoConfig, ElectraForMaskedLM, ElectraForPreTraining
+from transformers.models.auto.configuration_auto import AutoConfig
+from transformers.models.electra import ElectraForMaskedLM, ElectraForPreTraining
+from datasets import load_from_disk
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from myelectra_pytorch import Electra
+from electra_model.electra_pytorch import Electra
 from pretraining.arg import Str, Int, Float, Bool, parse_args
-from pretraining.dataset import load_text_dataset, wrap_example_builder, new_tokenizer
+
+from pretraining.tokenizer import load_tokenizer
+
+from torch.multiprocessing.spawn import spawn
 
 logger = logging.getLogger(__name__)
 
@@ -27,36 +33,36 @@ logger = logging.getLogger(__name__)
 @dataclass
 class Args:
     # Data settings
-    data_dir: Str = 'data/text_data'
-    data_vocab_file: Str = 'data/vocab.txt'
-    data_max_seq_length: Int = 128
+    data_dir: Str = 'data/text_data' # type: ignore
+    data_vocab_file: Str = 'data/vocab.txt' # type: ignore
+    data_max_seq_length: Int = 128 # type: ignore
     
     # Output settings
-    output_dir: Str = 'output'
+    output_dir: Str = 'output' # type: ignore
     
     # GPU settings
-    gpu: Int = 0
-    gpu_enabled: Bool = True
-    gpu_deterministic: Bool = False
-    gpu_mixed_precision: Bool = False
-    distributed_enabled: Bool = False
-    distributed_world_size: Int = 1
-    distributed_port: Int = 8888
+    gpu: Int = 0                              # type: ignore
+    gpu_enabled: Bool = True                  # type: ignore
+    gpu_deterministic: Bool = False           # type: ignore
+    gpu_mixed_precision: Bool = False         # type: ignore
+    distributed_enabled: Bool = False         # type: ignore
+    distributed_world_size: Int = 1           # type: ignore
+    distributed_port: Int = 8888              # type: ignore
 
     # Model settings
-    model_generator: Str = 'pretraining/small_generator.json'
-    model_discriminator: Str = 'pretraining/small_discriminator.json'
-    model_mask_prob: Float = 0.15
+    model_generator: Str = 'pretraining/small_generator.json' #type: ignore
+    model_discriminator: Str = 'pretraining/small_discriminator.json' #type: ignore
+    model_mask_prob: Float = 0.15 #type: ignore
     
     # Optimization settings
-    opt_lr: Float = 5e-4
-    opt_batch_size: Int = 32
-    opt_warmup_steps: Int = 10_000
-    opt_num_training_steps: Int = 100_000
+    opt_lr: Float = 5e-4 # type: ignore
+    opt_batch_size: Int = 32 # type: ignore
+    opt_warmup_steps: Int = 10_000 # type: ignore
+    opt_num_training_steps: Int = 100_000 # type: ignore
     
     # Logging and checkpoint settings
-    step_log: Int = 10
-    step_ckpt: Int = 5_000
+    step_log: Int = 10 # type: ignore
+    step_ckpt: Int = 5_000 # type: ignore
 
 
 ########################################################################################################
@@ -102,12 +108,15 @@ def train(rank, args):
     #######################
     ## dataset
 
-    tokenizer = new_tokenizer(vocab_file=args.data_vocab_file)
+    saved_tokenizer_dir = "tokenizer-trained.json"
+    tokenizer = load_tokenizer(saved_tokenizer_dir)
     vocab_size = len(tokenizer.vocab)
     
     logger.info(f"Loading dataset from {args.data_dir}")
-    ds_train = load_text_dataset(data_dir=args.data_dir, tokenizer=tokenizer)
-    ds_train = wrap_example_builder(ds_train, tokenizer=tokenizer, max_length=args.data_max_seq_length)
+    # Buffer size is how many examples is saved in the memory to be shuffled
+    # TODO: test this if it actually works
+    dataset = load_from_disk("./data/openwebtext/").repeat().shuffle(seed=42, buffer_size = 50000) # type: ignore
+    dataset.set_format(type="torch", columns=["text"])
 
     pad_token_id = tokenizer.vocab['[PAD]']
     mask_token_id = tokenizer.vocab['[MASK]']
@@ -125,9 +134,15 @@ def train(rank, args):
         segment_ids = torch.nn.utils.rnn.pad_sequence([example['segment_ids'] for example in examples], batch_first=True, padding_value=pad_token_id)
         return input_ids, input_mask, segment_ids
 
-    ds_train_loader = DataLoader(ds_train, batch_size=args.opt_batch_size, collate_fn=collate_batch)
+    ds_train_loader = DataLoader(dataset, batch_size=args.opt_batch_size, collate_fn=collate_batch) # type: ignore
+    for batch_idx, (batch_data, batch_labels) in enumerate(ds_train_loader):
+        print(f"Batch {batch_idx}:")
+        print(f"  Data shape: {batch_data.shape}")
+        print(f"  Labels shape: {batch_labels.shape}")
 
 
+    # TODO: remove this
+    return
     #######################
     ## model
 
@@ -308,13 +323,13 @@ def main():
     args = parse_args(Args)
     
     # Create output directory
-    os.makedirs(args.output_dir, exist_ok=True)
+    os.makedirs(args.output_dir, exist_ok=True) # type: ignore
 
-    # Set up distributed training
+    # Set up distributed training (False by default)
     if args.distributed_enabled:
         os.environ['MASTER_ADDR'] = 'localhost'
         os.environ['MASTER_PORT'] = str(args.distributed_port)
-        torch.multiprocessing.spawn(train, nprocs=args.distributed_world_size, args=(args,))
+        spawn(train, nprocs=args.distributed_world_size, args=(args,)) # type: ignore
     else:
         train(args.gpu, args)
 
