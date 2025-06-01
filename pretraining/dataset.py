@@ -4,8 +4,6 @@ from datasets import IterableDataset, load_from_disk
 
 from pretraining.tokenizer import load_tokenizer
 
-# TODO: remove this
-random.seed(42)
 
 class BertTrainingDataset(torch.utils.data.IterableDataset):
     def __init__(self, owt_dataset, builder): 
@@ -13,10 +11,18 @@ class BertTrainingDataset(torch.utils.data.IterableDataset):
         self.builder = builder
         self.tokenizer = load_tokenizer("tokenizer-trained.json")
 
+
+    # Only for testing
+    @staticmethod
+    def tokenize(tokenizer, text): 
+        tokenized = tokenizer.tokenize(text)
+        ids = tokenizer.convert_tokens_to_ids(tokenized)
+        return ids
+
     def __iter__(self): 
         while True: 
-            # TODO: replace "text" with "tokens", use pre tokenization
-            token_ids = self.tokenizer.tokenize(next(self.owt_dataset)["text"])
+            token_ids = self.tokenize(self.tokenizer, next(self.owt_dataset)["text"])
+            print(len(token_ids))
             example = self.builder.add_line(token_ids)
             if (example): 
                 yield example
@@ -105,12 +111,6 @@ class ExampleBuilder:
             "segment_ids": create_int_feature(segment_ids)
         }
         return tf_example
-
-
-def cycle_generator(gen): 
-    while True: 
-        for x in gen: 
-            yield x
 
 
 class HFInfiniteWrapper(torch.utils.data.IterableDataset):
