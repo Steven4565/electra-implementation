@@ -22,7 +22,7 @@ pip install -r requirements.txt
 ```
 
 ### Download datasets
-Run the following command to download the FULL openwebtext dataset.
+Run the following command to download the FULL openwebtext dataset (>50GB).
 ```bash
 python pretraining/download_datasets.py
 ```
@@ -35,9 +35,7 @@ python pretraining/download_datasets.py --dev
 ### Train tokenizer
 Run the following command to train a tokenizer
 ```bash
-python pretraining/tokenizer.py \
-  --dataset_dir data/openwebtext/ \
-  --vocab_file data/vocab.txt
+python pretraining/tokenizer.py
 ```
 
 ### Pretraining

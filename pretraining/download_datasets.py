@@ -6,27 +6,25 @@ import argparse
 import torch
 
 def download_dev_split(data_dir: Path, max_samples = 1000):
-    dataset = load_dataset("openwebtext", streaming=True)
+    dataset = iter(load_dataset("Skylion007/openwebtext", split="train", streaming=True))
 
-    partial_data = [{"text": x} for x in islice(dataset, max_samples)]
+    partial_data = []
+    for _ in range(max_samples): 
+        partial_data.append(next(dataset))
+
     partial_dataset = Dataset.from_list(partial_data)
     partial_dataset.save_to_disk(data_dir / "openwebtext")
 
-def download_datasets(dev=False):
-    # Create data directory if it doesn't exist
-    data_dir = Path("data")
-    data_dir.mkdir(exist_ok=True)
-    
-    # Download OpenWebText dataset for training
+def download_openwebtext(data_dir: Path, dev=False):
     print("Downloading OpenWebText dataset...")
     if (dev):
         download_dev_split(data_dir)
     else: 
-        openwebtext = load_dataset("openwebtext", split="train")
+        openwebtext = load_dataset("Skylion007/openwebtext", split="train")
         openwebtext.save_to_disk(data_dir / "openwebtext") # type: ignore
         print("OpenWebText dataset downloaded successfully!")
     
-    # Download GLUE datasets for evaluation
+def download_glue_datasets(data_dir: Path): 
     print("\nDownloading GLUE datasets...")
     glue_tasks = [
         "cola",
@@ -61,4 +59,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Download datasets")
     parser.add_argument("--dev", action="store_true", help="Download a subset of the dataset for development")
     args = parser.parse_args()
-    download_datasets(args.dev) 
+
+    data_dir = Path("data")
+    data_dir.mkdir(exist_ok=True)
+
+    download_openwebtext(data_dir, args.dev) 
+    download_glue_datasets(data_dir)

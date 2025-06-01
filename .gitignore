@@ -137,3 +137,4 @@ pyrightconfig.json
 
 data/**
 .DS_Store
+tokenizer*.json
