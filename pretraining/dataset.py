@@ -1,6 +1,9 @@
+from os import makedirs
+from pathlib import Path
 import torch
 import random
-from datasets import IterableDataset, load_from_disk
+from datasets import load_from_disk, load_dataset
+from datasets.arrow_writer import ArrowWriter
 
 from pretraining.tokenizer import load_tokenizer
 
@@ -22,7 +25,6 @@ class BertTrainingDataset(torch.utils.data.IterableDataset):
     def __iter__(self): 
         while True: 
             token_ids = self.tokenize(self.tokenizer, next(self.owt_dataset)["text"])
-            print(len(token_ids))
             example = self.builder.add_line(token_ids)
             if (example): 
                 yield example
@@ -90,7 +92,7 @@ class ExampleBuilder:
         return self._make_tf_example(first_segment, second_segment)
 
     def _make_tf_example(self, first_segment, second_segment):
-        """Converts two "segments" of text into a tf.train.Example."""
+        """Converts two "segments" of text into a training example"""
         vocab = self._vocab
         input_ids = [vocab["[CLS]"]] + first_segment + [vocab["[SEP]"]]
         segment_ids = [0] * len(input_ids)
@@ -114,14 +116,49 @@ class ExampleBuilder:
 
 
 class HFInfiniteWrapper(torch.utils.data.IterableDataset):
-    def __init__(self, owt_dataset_dir):
-        self.owt_dataset_dir = owt_dataset_dir
-        self.owt_dataset = load_from_disk(owt_dataset_dir)
-        self.owt_iter = iter(self.owt_dataset.shuffle())
+    def __init__(self, dataset_dir):
+        self.dataset_dir = dataset_dir
+        self.dataset = load_from_disk(dataset_dir)
+        self.iter = iter(self.dataset.shuffle())
 
     def __iter__(self): 
         while (True): 
             try:
-                yield next(self.owt_iter)
+                yield next(self.iter)
             except StopIteration: 
-                self.owt_iter = iter(self.owt_dataset.shuffle())
+                self.iter = iter(self.dataset.shuffle())
+
+class ExampleDiskWriter:
+    def __init__(self, example_dataset: BertTrainingDataset, n_per_file: int, save_dir: str, total_examples: int): 
+        self.example_dataset = example_dataset
+        self.n_per_file = n_per_file
+        self.save_dir = save_dir
+        self.file_counter = 0
+        self.total_examples = total_examples
+        self.total_example_counter = 0
+
+        makedirs(save_dir, exist_ok=True)
+
+    def write(self): 
+        data_iter = iter(self.example_dataset)
+        while (self.total_example_counter < self.total_examples):
+            buffer = []
+
+            while (len(buffer) < self.n_per_file):
+                example = next(data_iter)
+                buffer.append(example)
+                self.total_example_counter += 1
+
+            arrow_file_path = Path(self.save_dir) / Path(f"{self.file_counter}.arrow")
+            self.file_counter += 1
+
+            with ArrowWriter(path=str(arrow_file_path)) as writer: 
+                writer.write_batch({"text": buffer})
+                writer.finalize()
+
+def example_dataset_disk_loader():
+    dir = "data/preprocessed_examples/"
+    files = [str(Path(dir) / f.name) for f in Path("data/preprocessed_examples/").iterdir()]
+    ds = load_dataset("arrow", data_files={"train": files}, split="train")
+    return ds
+
