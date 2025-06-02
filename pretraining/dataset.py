@@ -2,7 +2,7 @@ from os import makedirs
 from pathlib import Path
 import torch
 import random
-from datasets import load_from_disk, load_dataset
+from datasets import load_from_disk, load_dataset, Dataset
 from datasets.arrow_writer import ArrowWriter
 
 from pretraining.tokenizer import load_tokenizer
@@ -116,15 +116,21 @@ class ExampleBuilder:
 
 
 class HFInfiniteWrapper(torch.utils.data.IterableDataset):
-    def __init__(self, dataset_dir):
-        self.dataset_dir = dataset_dir
-        self.dataset = load_from_disk(dataset_dir)
-        self.iter = iter(self.dataset.shuffle())
+    def __init__(self, dataset: Dataset):
+        self.dataset = dataset
+        # Buffer size is how many examples is saved in the memory to be shuffled. Default is 10k
+        self.iter = iter(self.dataset.shuffle(seed=42))
 
     def __iter__(self): 
         while (True): 
             try:
-                yield next(self.iter)
+                x = next(self.iter)
+                tensor_ex = {
+                    "input_ids": torch.tensor(x["input_ids"]), # type: ignore
+                    "input_mask": torch.tensor(x["input_mask"]), # type: ignore
+                    "segment_ids": torch.tensor(x["segment_ids"]), # type: ignore
+                }
+                yield tensor_ex
             except StopIteration: 
                 self.iter = iter(self.dataset.shuffle())
 
@@ -153,12 +159,16 @@ class ExampleDiskWriter:
             self.file_counter += 1
 
             with ArrowWriter(path=str(arrow_file_path)) as writer: 
-                writer.write_batch({"text": buffer})
+                buffer_keys = buffer[0].keys()
+                dict_of_lists = {k: [d[k] for d in buffer] for k in buffer_keys}
+                writer.write_batch(dict_of_lists)
                 writer.finalize()
 
 def example_dataset_disk_loader():
     dir = "data/preprocessed_examples/"
     files = [str(Path(dir) / f.name) for f in Path("data/preprocessed_examples/").iterdir()]
     ds = load_dataset("arrow", data_files={"train": files}, split="train")
-    return ds
+    assert isinstance(ds, Dataset)
+    inf = HFInfiniteWrapper(ds)
+    return inf
 

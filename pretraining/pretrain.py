@@ -15,6 +15,8 @@ from transformers.models.auto.configuration_auto import AutoConfig
 from transformers.models.electra import ElectraForMaskedLM, ElectraForPreTraining
 from datasets import load_from_disk
 
+from pretraining.dataset import example_dataset_disk_loader
+
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -111,12 +113,10 @@ def train(rank, args):
     saved_tokenizer_dir = "tokenizer-trained.json"
     tokenizer = load_tokenizer(saved_tokenizer_dir)
     vocab_size = len(tokenizer.vocab)
-    
+
+    # TODO: fix file pathing mismatch
     logger.info(f"Loading dataset from {args.data_dir}")
-    # Buffer size is how many examples is saved in the memory to be shuffled
-    # TODO: test this if it actually works
-    dataset = load_from_disk("./data/openwebtext/").repeat().shuffle(seed=42, buffer_size = 50000) # type: ignore
-    dataset.set_format(type="torch", columns=["text"])
+    dataset = example_dataset_disk_loader()
 
     pad_token_id = tokenizer.vocab['[PAD]']
     mask_token_id = tokenizer.vocab['[MASK]']
@@ -130,19 +130,12 @@ def train(rank, args):
 
     def collate_batch(examples):
         input_ids = torch.nn.utils.rnn.pad_sequence([example['input_ids'] for example in examples], batch_first=True, padding_value=pad_token_id)
-        input_mask = torch.nn.utils.rnn.pad_sequence([example['input_mask'] for example in examples], batch_first=True, padding_value=0)
+        input_mask = torch.nn.utils.rnn.pad_sequence([example['input_mask'] for example in examples], batch_first=True, padding_value=pad_token_id)
         segment_ids = torch.nn.utils.rnn.pad_sequence([example['segment_ids'] for example in examples], batch_first=True, padding_value=pad_token_id)
         return input_ids, input_mask, segment_ids
 
     ds_train_loader = DataLoader(dataset, batch_size=args.opt_batch_size, collate_fn=collate_batch) # type: ignore
-    for batch_idx, (batch_data, batch_labels) in enumerate(ds_train_loader):
-        print(f"Batch {batch_idx}:")
-        print(f"  Data shape: {batch_data.shape}")
-        print(f"  Labels shape: {batch_labels.shape}")
 
-
-    # TODO: remove this
-    return
     #######################
     ## model
 
@@ -218,12 +211,7 @@ def train(rank, args):
     data_iter = iter(ds_train_loader)
 
     for step in range(args.opt_num_training_steps + 1):
-        try:
-            input_ids, input_mask, segment_ids = next(data_iter)
-        except StopIteration:
-            # Restart the data iterator when it's exhausted
-            data_iter = iter(ds_train_loader)
-            input_ids, input_mask, segment_ids = next(data_iter)
+        input_ids, input_mask, segment_ids = next(data_iter) # dataset is infinite (see datasets.py)
 
         input_ids = input_ids.to(device)
         input_mask = input_mask.to(device)

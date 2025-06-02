@@ -38,6 +38,16 @@ Run the following command to train a tokenizer
 python pretraining/tokenizer.py
 ```
 
+### Generate pretraining examples
+Create 80GB worth of examples, then save to disk
+```bash
+python pretraining/create_examples_ds.py
+```
+Run the following command to generate less data for development
+```bash
+python pretraining/create_examples_ds.py --dev
+```
+
 ### Pretraining
 
 ```bash
