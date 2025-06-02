@@ -133,6 +133,7 @@ class HFInfiniteWrapper(torch.utils.data.IterableDataset):
                 yield tensor_ex
             except StopIteration: 
                 self.iter = iter(self.dataset.shuffle())
+                print("Looping dataset")
 
 class ExampleDiskWriter:
     def __init__(self, example_dataset: BertTrainingDataset, n_per_file: int, save_dir: str, total_examples: int): 
