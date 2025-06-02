@@ -13,10 +13,9 @@ def main(dev = False):
     owt_dataset = load_from_disk("./data/openwebtext/") 
     if (isinstance(owt_dataset, DatasetDict)): 
         owt_dataset = owt_dataset['train']
-    dataset = HFInfiniteWrapper(owt_dataset)
     builder = ExampleBuilder(vocab, 128)
 
-    bert_dataset = BertTrainingDataset(dataset, builder)
+    bert_dataset = BertTrainingDataset(owt_dataset, builder)
     
     if (dev): 
         print("Generating development example dataset")

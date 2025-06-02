@@ -8,6 +8,7 @@ from datasets.arrow_writer import ArrowWriter
 from pretraining.tokenizer import load_tokenizer
 
 
+# TODO: handle on StopIteration, test this
 class BertTrainingDataset(torch.utils.data.IterableDataset):
     def __init__(self, owt_dataset, builder): 
         self.owt_dataset = iter(owt_dataset)
@@ -24,10 +25,14 @@ class BertTrainingDataset(torch.utils.data.IterableDataset):
 
     def __iter__(self): 
         while True: 
-            token_ids = self.tokenize(self.tokenizer, next(self.owt_dataset)["text"])
-            example = self.builder.add_line(token_ids)
-            if (example): 
-                yield example
+            try: 
+                token_ids = self.tokenize(self.tokenizer, next(self.owt_dataset)["text"])
+                example = self.builder.add_line(token_ids)
+                if (example): 
+                    yield example
+            except StopIteration: 
+                return
+
 
 class ExampleBuilder:
     """Given a stream of input text, creates pretraining examples."""

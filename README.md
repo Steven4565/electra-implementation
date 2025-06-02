@@ -1,17 +1,11 @@
-# MyELECTRA: ELECTRA Implementation in PyTorch
+# ELECTRA Implementation 
 
 This is a PyTorch implementation of the ELECTRA model from the paper [ELECTRA: Pre-training Text Encoders as Discriminators Rather Than Generators](https://openreview.net/forum?id=r1xMH1BtvB) by Clark et al.
 
-## Overview
-
-ELECTRA is a new method for self-supervised language representation learning. Instead of masking tokens like in BERT, ELECTRA trains two transformer models: a generator and a discriminator. The generator replaces tokens with plausible alternatives sampled from its output distribution, and the discriminator predicts whether each token was replaced by the generator or not.
-
-This approach, called replaced token detection, is more sample efficient than masked language modeling (MLM) used in BERT. The task is defined over all input tokens rather than just a small subset (e.g., 15% for BERT), so the model learns from more training signals per example.
-
 
 ## TODO: 
-- generate vocab file
-- create dataset downloader for testing vs full training
+- Clean hard coded files
+- Generate dataset and save to hf
 
 ## Usage
 
