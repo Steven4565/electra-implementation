@@ -178,3 +178,54 @@ def example_dataset_disk_loader():
     inf = HFInfiniteWrapper(ds)
     return inf
 
+def multiprocess_tokenize_openwebtext(
+    dataset_path="data/openwebtext",
+    tokenizer_path="tokenizer-trained.json",
+    save_path="data/openwebtext_tokenized",
+    num_proc=8,
+    max_length=128
+):
+    """
+    Tokenize the entire openwebtext dataset using multiprocessing and save to disk.
+    """
+    from datasets import load_from_disk
+    from pretraining.tokenizer import load_tokenizer
+
+    print(f"Loading dataset from {dataset_path} ...")
+    dataset = load_from_disk(dataset_path)
+    print(f"Loading tokenizer from {tokenizer_path} ...")
+    tokenizer = load_tokenizer(tokenizer_path)
+    if tokenizer.pad_token is None:
+        tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+
+    def tokenize_function(example):
+        return tokenizer(
+            example["text"],
+            truncation=True,
+            padding="max_length",
+            max_length=max_length,
+        )
+
+    print(f"Tokenizing dataset with {num_proc} processes ...")
+    tokenized_dataset = dataset.map(tokenize_function, batched=True, num_proc=num_proc)
+    print(f"Saving tokenized dataset to {save_path} ...")
+    tokenized_dataset.save_to_disk(save_path)
+    print("Tokenization and saving complete.")
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Multiprocess tokenization of openwebtext dataset.")
+    parser.add_argument("--dataset_path", type=str, default="data/openwebtext", help="Path to the raw dataset.")
+    parser.add_argument("--tokenizer_path", type=str, default="tokenizer-trained.json", help="Path to the trained tokenizer.")
+    parser.add_argument("--save_path", type=str, default="data/openwebtext_tokenized", help="Where to save the tokenized dataset.")
+    parser.add_argument("--num_proc", type=int, default=8, help="Number of processes to use.")
+    parser.add_argument("--max_length", type=int, default=128, help="Max sequence length.")
+    args = parser.parse_args()
+    multiprocess_tokenize_openwebtext(
+        dataset_path=args.dataset_path,
+        tokenizer_path=args.tokenizer_path,
+        save_path=args.save_path,
+        num_proc=args.num_proc,
+        max_length=args.max_length,
+    )
+

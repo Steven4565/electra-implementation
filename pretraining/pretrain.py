@@ -60,7 +60,7 @@ class Args:
     opt_lr: Float = 5e-4 # type: ignore
     opt_batch_size: Int = 32 # type: ignore
     opt_warmup_steps: Int = 10_000 # type: ignore
-    opt_num_training_steps: Int = 100_000 # type: ignore
+    opt_num_training_steps: Int = 500_000 # type: ignore
     
     # Logging and checkpoint settings
     step_log: Int = 10 # type: ignore
