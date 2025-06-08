@@ -24,6 +24,7 @@ from transformers import (
     glue_output_modes,
     glue_processors
 )
+from transformers.tokenization_utils_fast import PreTrainedTokenizerFast
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +100,7 @@ def load_and_cache_examples(args, task, tokenizer, evaluate=False):
             )
 
     dataset = dataset.map(preprocess_function, batched=True)
+
 
     # Force label to int64 in batched mode
     def ensure_int_label(batch):
@@ -187,6 +189,7 @@ def train(args, train_dataset, model, tokenizer):
                 "token_type_ids": batch[2],
                 "labels": batch[3],
             }
+            print(inputs)
             outputs = model(**inputs)
             loss = outputs[0]
             
@@ -400,12 +403,17 @@ def main():
         num_labels=num_labels,
         finetuning_task=internal_task_name,
     )
-    tokenizer = ElectraTokenizer.from_pretrained(
-        args.tokenizer_name if args.tokenizer_name else args.model_name_or_path,
-        do_lower_case=True, # Assuming uncased model for GLUE
+    tokenizer = PreTrainedTokenizerFast(
+        tokenizer_file="./tokenizer-trained.json",
+        unk_token="[UNK]",
+        pad_token="[PAD]",
+        cls_token="[CLS]",
+        sep_token="[SEP]",
+        mask_token="[MASK]",
+        do_lower_case=True
     )
     model = ElectraForSequenceClassification.from_pretrained(
-        args.model_name_or_path, # Changed from args.output_dir
+        args.model_name_or_path, 
         from_tf=bool(".ckpt" in args.model_name_or_path),
         config=config,
     )

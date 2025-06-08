@@ -2,7 +2,9 @@ import os
 from pathlib import Path
 from datasets import Dataset, DatasetDict, load_dataset, load_from_disk
 from pretraining.dataset import BertTrainingDataset, ExampleBuilder, ExampleDiskWriter, HFInfiniteWrapper, example_dataset_disk_loader
-from pretraining.tokenizer import load_tokenizer
+from pretraining.tokenizer import load_tokenizer, PreTrainedTokenizerFast
+from transformers.models.auto.configuration_auto import AutoConfig
+from transformers.models.electra import ElectraForSequenceClassification, ElectraForPreTraining, ElectraPreTrainedModel
 
 
 # tokenizer = load_tokenizer("tokenizer-trained.json")
