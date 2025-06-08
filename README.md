@@ -55,12 +55,13 @@ python pretraining/pretrain.py \
 
 ```bash
 python examples/eval_glue.py \
-  --data_dir path/to/glue_data/TASK \
-  --model_name_or_path output/electra_pretrain/ckpt/final \
-  --task_name TASK \
+  --data_dir data/glue_cola \
+  --model_name_or_path output/ckpt/final \
+  --task_name cola \
   --do_train \
   --do_eval \
-  --output_dir output/electra_TASK
+  --output_dir output/electra_TASK \
+  --tokenizer_name ./tokenizer-trained.json
 ```
 
 Where `TASK` is one of the GLUE tasks (e.g., `cola`, `sst-2`, `mrpc`, etc.).
