@@ -43,7 +43,7 @@ def main():
     saved_tokenizer_dir = "./tokenizer-trained.json"
     dataset_dir = "./data/openwebtext/"
     corpus_file = "./data/corpus.txt"
-    n_data = 100
+    n_data = 1_000_000
     create_corpus(dataset_dir, n_data, corpus_file)
     train(corpus_file, saved_tokenizer_dir)
 

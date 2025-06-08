@@ -13,6 +13,7 @@ from torch.optim import AdamW
 from torch.nn import CrossEntropyLoss, MSELoss
 from tqdm import tqdm, trange
 from sklearn.metrics import accuracy_score, f1_score, matthews_corrcoef, classification_report
+from datasets import load_from_disk
 
 from transformers import (
     ElectraConfig, 
@@ -39,6 +40,18 @@ GLUE_TASK_TO_METRICS = {
     "wnli": ["acc"],
 }
 
+GLUE_TASK_TO_COLUMNS = {
+    "cola": ("sentence", None),
+    "sst-2": ("sentence", None),
+    "mrpc": ("sentence1", "sentence2"),
+    "qqp": ("question1", "question2"),
+    "sts-b": ("sentence1", "sentence2"),
+    "mnli": ("premise", "hypothesis"),
+    "qnli": ("question", "sentence"),
+    "rte": ("sentence1", "sentence2"),
+    "wnli": ("sentence1", "sentence2"),
+}
+
 def set_seed(seed):
     """Set random seed for reproducibility."""
     random.seed(seed)
@@ -58,68 +71,62 @@ def setup_logging(console=True):
         logger.addHandler(console_handler)
 
 def load_and_cache_examples(args, task, tokenizer, evaluate=False):
-    """Load and preprocess GLUE task data."""
-    processor = glue_processors[task]()
-    output_mode = glue_output_modes[task]
+    split = "validation" if evaluate else "train"
+    dataset_path = os.path.join(args.data_dir, split)
     
-    # Load data features
-    if evaluate:
-        examples = processor.get_dev_examples(args.data_dir)
-        if hasattr(args, 'max_eval_samples') and args.max_eval_samples is not None:
-            examples = examples[:args.max_eval_samples]
-    else:
-        examples = processor.get_train_examples(args.data_dir)
-        if hasattr(args, 'max_train_samples') and args.max_train_samples is not None:
-            examples = examples[:args.max_train_samples]
-    
-    # Get labels
-    label_list = processor.get_labels()
-    
-    # Convert examples to features
-    features = []
-    for (ex_index, example) in enumerate(examples):
-        inputs = tokenizer.encode_plus(
-            example.text_a,
-            example.text_b,
-            add_special_tokens=True,
-            max_length=args.max_seq_length,
-            padding="max_length",
-            truncation=True,
-            return_attention_mask=True,
-            return_token_type_ids=True,
-        )
-        
-        input_ids = inputs["input_ids"]
-        attention_mask = inputs["attention_mask"]
-        token_type_ids = inputs["token_type_ids"]
-        
-        # Convert label to id
-        if output_mode == "classification":
-            label = label_list.index(example.label)
-        elif output_mode == "regression":
-            label = float(example.label)
+    # Handle mnli validation splits
+    if task == "mnli" and evaluate:
+        dataset_path = os.path.join(args.data_dir, "validation_matched")
+    elif task == "mnli-mm" and evaluate:
+        dataset_path = os.path.join(args.data_dir, "validation_mismatched")
+        task = "mnli" # Use mnli columns for mnli-mm
+
+    dataset = load_from_disk(dataset_path)
+
+    col1, col2 = GLUE_TASK_TO_COLUMNS[task]
+    label_col = "label"
+
+    def preprocess_function(examples):
+        if col2 is not None:
+            return tokenizer(
+                examples[col1], examples[col2],
+                truncation=True, padding="max_length", max_length=args.max_seq_length
+            )
         else:
-            raise ValueError(f"Unsupported output mode: {output_mode}")
-        
-        features.append({
-            "input_ids": input_ids,
-            "attention_mask": attention_mask,
-            "token_type_ids": token_type_ids,
-            "label": label,
-        })
+            return tokenizer(
+                examples[col1],
+                truncation=True, padding="max_length", max_length=args.max_seq_length
+            )
+
+    dataset = dataset.map(preprocess_function, batched=True)
+
+    # Force label to int64 in batched mode
+    def ensure_int_label(batch):
+        labels = []
+        for label in batch["label"]:
+            if isinstance(label, str):
+                try:
+                    labels.append(int(label))
+                except Exception:
+                    labels.append(-1)
+            elif label is None or (isinstance(label, float) and np.isnan(label)):
+                labels.append(-1)
+            else:
+                labels.append(int(label))
+        batch["label"] = np.array(labels, dtype=np.int64)
+        return batch
+    dataset = dataset.map(ensure_int_label, batched=True)
+
+    columns = ["input_ids", "attention_mask"]
+    if "token_type_ids" in dataset.column_names:
+        columns.append("token_type_ids")
+    columns.append(label_col)
     
-    # Convert to tensors
-    all_input_ids = torch.tensor([f["input_ids"] for f in features], dtype=torch.long)
-    all_attention_mask = torch.tensor([f["attention_mask"] for f in features], dtype=torch.long)
-    all_token_type_ids = torch.tensor([f["token_type_ids"] for f in features], dtype=torch.long)
+    dataset.set_format(type="torch", columns=columns)
     
-    if output_mode == "classification":
-        all_labels = torch.tensor([f["label"] for f in features], dtype=torch.long)
-    elif output_mode == "regression":
-        all_labels = torch.tensor([f["label"] for f in features], dtype=torch.float)
-    
-    dataset = TensorDataset(all_input_ids, all_attention_mask, all_token_type_ids, all_labels)
-    return dataset
+    # Create a TensorDataset for compatibility with the rest of the script
+    tensors = [dataset[col] for col in columns]
+    return TensorDataset(*tensors)
 
 def train(args, train_dataset, model, tokenizer):
     """Train the model on the training set."""
@@ -132,6 +139,11 @@ def train(args, train_dataset, model, tokenizer):
     else:
         t_total = len(train_dataloader) // args.gradient_accumulation_steps * args.num_train_epochs
     
+    # Add warmup steps if not specified
+    if args.warmup_steps == 0:
+        args.warmup_steps = int(t_total * 0.1) # Use 10% for warmup
+        logger.info(f"Warmup steps not specified. Set to {args.warmup_steps} (10% of total steps).")
+
     # Prepare optimizer and schedule
     no_decay = ["bias", "LayerNorm.weight"]
     optimizer_grouped_parameters = [
@@ -289,7 +301,7 @@ def main():
     
     # Required parameters
     parser.add_argument("--data_dir", type=str, required=True,
-                        help="The input data directory containing GLUE data.")
+                        help="The input data directory. Should contain the arrow datasets (e.g., data/glue_cola).")
     parser.add_argument("--model_type", type=str, default="electra",
                         help="Model type (electra)")
     parser.add_argument("--model_name_or_path", type=str, required=True,
@@ -364,13 +376,21 @@ def main():
     # Set seed
     set_seed(args.seed)
     
-    # Prepare GLUE task
+    # Task name mapping for internal use
     args.task_name = args.task_name.lower()
-    if args.task_name not in glue_processors:
-        raise ValueError(f"Task not found: {args.task_name}")
+    TASK_NAME_MAP = {
+        "sst2": "sst-2",
+        "stsb": "sts-b",
+    }
+    args.task_name = TASK_NAME_MAP.get(args.task_name, args.task_name)
+    internal_task_name = args.task_name # for clarity, though it's now the same
     
-    processor = glue_processors[args.task_name]()
-    args.output_mode = glue_output_modes[args.task_name]
+    # Prepare GLUE task
+    if internal_task_name not in glue_processors:
+        raise ValueError(f"Task not found: {internal_task_name}")
+    
+    processor = glue_processors[internal_task_name]()
+    args.output_mode = glue_output_modes[internal_task_name]
     label_list = processor.get_labels()
     num_labels = len(label_list) if args.output_mode == "classification" else 1
     
@@ -378,7 +398,7 @@ def main():
     config = ElectraConfig.from_pretrained(
         args.config_name if args.config_name else args.model_name_or_path,
         num_labels=num_labels,
-        finetuning_task=args.task_name,
+        finetuning_task=internal_task_name,
     )
     tokenizer = ElectraTokenizer.from_pretrained(
         args.tokenizer_name if args.tokenizer_name else args.model_name_or_path,
@@ -396,7 +416,8 @@ def main():
     
     # Training
     if args.do_train:
-        train_dataset = load_and_cache_examples(args, args.task_name, tokenizer, evaluate=False)
+        # Use internal_task_name for loading data
+        train_dataset = load_and_cache_examples(args, internal_task_name, tokenizer, evaluate=False)
         global_step, tr_loss = train(args, train_dataset, model, tokenizer)
         logger.info(f" global_step = {global_step}, average loss = {tr_loss}")
         
@@ -412,22 +433,14 @@ def main():
     # Evaluation
     results = {}
     if args.do_eval:
-        evaluation_model_path = args.model_name_or_path
-        # If training was also performed in the same run, the fine-tuned model would be in args.output_dir.
-        # However, for a pure evaluation run (like this one), we use the model specified in model_name_or_path.
-        # The original script might assume training always happens before evaluation if both flags are set.
-        # For clarity, if only do_eval is true, we load from model_name_or_path.
-        # If do_train was also true, it implies the model was saved to output_dir after training.
-        if args.do_train: 
-             evaluation_model_path = args.output_dir
-             logger.info(f"Evaluating model from {evaluation_model_path} (fine-tuned in this run).")
-        else:
-            logger.info(f"Evaluating model from {evaluation_model_path} (pre-trained).")
+        # If training was not part of this run, load the specified model from disk.
+        # Otherwise, the model is already in memory and has been fine-tuned.
+        if not args.do_train:
+            logger.info(f"Loading model for evaluation from {args.model_name_or_path}")
+            model = ElectraForSequenceClassification.from_pretrained(args.model_name_or_path)
+            tokenizer = ElectraTokenizer.from_pretrained(args.model_name_or_path)
+            model.to(args.device)
 
-        model = ElectraForSequenceClassification.from_pretrained(evaluation_model_path)
-        tokenizer = ElectraTokenizer.from_pretrained(evaluation_model_path) # Load tokenizer from the same path
-        model.to(args.device)
-        
         result = evaluate(args, model, tokenizer, prefix="")
         results.update(result)
     
