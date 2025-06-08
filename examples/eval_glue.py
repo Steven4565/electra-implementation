@@ -189,7 +189,6 @@ def train(args, train_dataset, model, tokenizer):
                 "token_type_ids": batch[2],
                 "labels": batch[3],
             }
-            print(inputs)
             outputs = model(**inputs)
             loss = outputs[0]
             
@@ -404,7 +403,7 @@ def main():
         finetuning_task=internal_task_name,
     )
     tokenizer = PreTrainedTokenizerFast(
-        tokenizer_file="./tokenizer-trained.json",
+        tokenizer_file=args.tokenizer_name,
         unk_token="[UNK]",
         pad_token="[PAD]",
         cls_token="[CLS]",
@@ -414,7 +413,7 @@ def main():
     )
     model = ElectraForSequenceClassification.from_pretrained(
         args.model_name_or_path, 
-        from_tf=bool(".ckpt" in args.model_name_or_path),
+        use_safetensors=True,
         config=config,
     )
     
@@ -446,7 +445,15 @@ def main():
         if not args.do_train:
             logger.info(f"Loading model for evaluation from {args.model_name_or_path}")
             model = ElectraForSequenceClassification.from_pretrained(args.model_name_or_path)
-            tokenizer = ElectraTokenizer.from_pretrained(args.model_name_or_path)
+            tokenizer = PreTrainedTokenizerFast(
+                tokenizer_file=args.tokenizer_name,
+                unk_token="[UNK]",
+                pad_token="[PAD]",
+                cls_token="[CLS]",
+                sep_token="[SEP]",
+                mask_token="[MASK]",
+                do_lower_case=True
+            )
             model.to(args.device)
 
         result = evaluate(args, model, tokenizer, prefix="")

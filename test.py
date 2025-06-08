@@ -25,7 +25,7 @@ def test_bert_dataset():
     #     print('================')
     #     print(tokenizer.convert_ids_to_tokens(text["input_ids"]))
 
-    # dataset = load_from_disk("./data/openwebtext/").select([0 ,1, 2]).repeat(10000)
+    dataset = load_from_disk("./data/openwebtext/").select([0 ,1, 2]).repeat(10000)
     iter_d = iter(dataset)
 
     print(next(iter_d))

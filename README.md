@@ -61,10 +61,7 @@ python examples/eval_glue.py \
   --do_train \
   --do_eval \
   --output_dir output/electra_TASK \
-  --tokenizer_name tokenizer-electra-compatible
-```
-
-Where `TASK` is one of the GLUE tasks (e.g., `cola`, `sst-2`, `mrpc`, etc.).
+  --tokenizer_name ./tokenizer-trained.json
 
 ## Pretrained Models
 
