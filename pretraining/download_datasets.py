@@ -58,10 +58,12 @@ def download_glue_datasets(data_dir: Path):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Download datasets")
     parser.add_argument("--dev", action="store_true", help="Download a subset of the dataset for development")
+    parser.add_argument("--glue", action="store_true", help="Download a subset of the dataset for development")
     args = parser.parse_args()
 
     data_dir = Path("data")
     data_dir.mkdir(exist_ok=True)
 
     download_openwebtext(data_dir, args.dev) 
-    download_glue_datasets(data_dir)
+    if (args.glue): 
+        download_glue_datasets(data_dir)

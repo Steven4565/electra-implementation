@@ -17,8 +17,9 @@ pip install -r requirements.txt
 
 ### Download datasets
 Run the following command to download the FULL openwebtext dataset (>50GB).
+Add the `--glue` flag to download the full Glue benchmark dataset
 ```bash
-python pretraining/download_datasets.py
+python pretraining/download_datasets.py --glue
 ```
 For development, download the subset of openwebtext with 
 ```bash
