@@ -1,28 +1,25 @@
 import os
-import sys
 import argparse
 import logging
 import random
 import numpy as np
-from dataclasses import dataclass
-from typing import Dict, List, Optional
 
 import torch
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, TensorDataset
 from torch.optim import AdamW
-from torch.nn import CrossEntropyLoss, MSELoss
 from tqdm import tqdm, trange
-from sklearn.metrics import accuracy_score, f1_score, matthews_corrcoef, classification_report
 from datasets import load_from_disk
+from dataclasses import dataclass
+from typing import Optional
 
 from transformers import (
-    ElectraConfig, 
-    ElectraForSequenceClassification, 
-    ElectraTokenizer,
-    get_linear_schedule_with_warmup,
-    glue_compute_metrics,
-    glue_output_modes,
-    glue_processors
+    ElectraConfig,  # type: ignore
+    ElectraForSequenceClassification,  # type: ignore
+    ElectraTokenizer, # type: ignore
+    get_linear_schedule_with_warmup, # type: ignore
+    glue_compute_metrics, # type: ignore
+    glue_output_modes, # type: ignore
+    glue_processors # type: ignore
 )
 from transformers.tokenization_utils_fast import PreTrainedTokenizerFast
 
@@ -52,6 +49,39 @@ GLUE_TASK_TO_COLUMNS = {
     "rte": ("sentence1", "sentence2"),
     "wnli": ("sentence1", "sentence2"),
 }
+
+@dataclass
+class Args:
+    data_dir: str
+    model_name_or_path: str
+    task_name: str
+    output_dir: str
+    device: torch.device
+    n_gpu: int
+    output_mode: str = ""
+    config_name: str = ""
+    tokenizer_name: str = "./tokenizer-trained.json"
+    max_seq_length: int = 128
+    do_train: bool = True
+    do_eval: bool = True
+    evaluate_during_training: bool = False
+    train_batch_size: int = 32
+    eval_batch_size: int = 32
+    learning_rate: float = 5e-5
+    weight_decay: float = 0.0
+    adam_epsilon: float = 1e-8
+    max_grad_norm: float = 1.0
+    num_train_epochs: float = 3.0
+    max_steps: int = -1
+    warmup_steps: int = 0
+    logging_steps: int = 500
+    save_steps: int = 500
+    no_cuda: bool = False
+    seed: int = 42
+    fp16: bool = False
+    gradient_accumulation_steps: int = 1
+    max_train_samples: Optional[int] = None
+    max_eval_samples: Optional[int] = None
 
 def set_seed(seed):
     """Set random seed for reproducibility."""
@@ -128,7 +158,7 @@ def load_and_cache_examples(args, task, tokenizer, evaluate=False):
     
     # Create a TensorDataset for compatibility with the rest of the script
     tensors = [dataset[col] for col in columns]
-    return TensorDataset(*tensors)
+    return TensorDataset(*tensors) # type: ignore
 
 def train(args, train_dataset, model, tokenizer):
     """Train the model on the training set."""
@@ -274,7 +304,7 @@ def evaluate(args, model, tokenizer, prefix=""):
             out_label_ids = inputs["labels"].detach().cpu().numpy()
         else:
             preds = np.append(preds, logits.detach().cpu().numpy(), axis=0)
-            out_label_ids = np.append(out_label_ids, inputs["labels"].detach().cpu().numpy(), axis=0)
+            out_label_ids = np.append(out_label_ids, inputs["labels"].detach().cpu().numpy(), axis=0) # type: ignore
     
     eval_loss = eval_loss / nb_eval_steps
     
@@ -283,9 +313,9 @@ def evaluate(args, model, tokenizer, prefix=""):
     label_list = processor.get_labels()
     
     if args.output_mode == "classification":
-        preds = np.argmax(preds, axis=1)
+        preds = np.argmax(preds, axis=1) # type: ignore
     elif args.output_mode == "regression":
-        preds = np.squeeze(preds)
+        preds = np.squeeze(preds) # type: ignore
     
     # Compute metrics
     result = glue_compute_metrics(args.task_name, preds, out_label_ids)
@@ -299,81 +329,24 @@ def evaluate(args, model, tokenizer, prefix=""):
     return result
 
 def main():
-    parser = argparse.ArgumentParser()
+
+    task = "cola"
+    no_cuda = False
+
+    args = Args(
+        data_dir = "data/glue_" + task,
+        model_name_or_path = "output/ckpt/final",
+        task_name = "cola",
+        output_dir = "output/electra_" + task,
+        device = torch.device("cuda" if torch.cuda.is_available() and not no_cuda else "cpu"),
+        n_gpu = torch.cuda.device_count()
+    )
     
-    # Required parameters
-    parser.add_argument("--data_dir", type=str, required=True,
-                        help="The input data directory. Should contain the arrow datasets (e.g., data/glue_cola).")
-    parser.add_argument("--model_type", type=str, default="electra",
-                        help="Model type (electra)")
-    parser.add_argument("--model_name_or_path", type=str, required=True,
-                        help="Path to pre-trained model or shortcut name from huggingface.co/models")
-    parser.add_argument("--task_name", type=str, required=True,
-                        help="GLUE task name (e.g., cola, sst-2, mrpc, etc.)")
-    parser.add_argument("--output_dir", type=str, required=True,
-                        help="The output directory where model checkpoints will be written.")
-    
-    # Other parameters
-    parser.add_argument("--config_name", type=str, default="",
-                        help="Pretrained config name or path if not the same as model_name")
-    parser.add_argument("--tokenizer_name", type=str, default="",
-                        help="Pretrained tokenizer name or path if not the same as model_name")
-    parser.add_argument("--max_seq_length", type=int, default=128,
-                        help="Maximum sequence length")
-    parser.add_argument("--do_train", action="store_true",
-                        help="Whether to run training.")
-    parser.add_argument("--do_eval", action="store_true",
-                        help="Whether to run evaluation.")
-    parser.add_argument("--evaluate_during_training", action="store_true",
-                        help="Run evaluation during training at each logging step.")
-    
-    # Training parameters
-    parser.add_argument("--train_batch_size", type=int, default=32,
-                        help="Batch size for training.")
-    parser.add_argument("--eval_batch_size", type=int, default=32,
-                        help="Batch size for evaluation.")
-    parser.add_argument("--learning_rate", type=float, default=5e-5,
-                        help="The initial learning rate for Adam.")
-    parser.add_argument("--weight_decay", type=float, default=0.0,
-                        help="Weight decay if we apply some.")
-    parser.add_argument("--adam_epsilon", type=float, default=1e-8,
-                        help="Epsilon for Adam optimizer.")
-    parser.add_argument("--max_grad_norm", type=float, default=1.0,
-                        help="Max gradient norm.")
-    parser.add_argument("--num_train_epochs", type=float, default=3.0,
-                        help="Total number of training epochs to perform.")
-    parser.add_argument("--max_steps", type=int, default=-1,
-                        help="If > 0: set total number of training steps to perform. Override num_train_epochs.")
-    parser.add_argument("--warmup_steps", type=int, default=0,
-                        help="Linear warmup over warmup_steps.")
-    parser.add_argument("--logging_steps", type=int, default=500,
-                        help="Log every X updates steps.")
-    parser.add_argument("--save_steps", type=int, default=500,
-                        help="Save checkpoint every X updates steps.")
-    parser.add_argument("--no_cuda", action="store_true",
-                        help="Avoid using CUDA when available")
-    parser.add_argument("--seed", type=int, default=42,
-                        help="Random seed for initialization.")
-    parser.add_argument("--fp16", action="store_true",
-                        help="Whether to use 16-bit (mixed) precision instead of 32-bit.")
-    parser.add_argument("--gradient_accumulation_steps", type=int, default=1,
-                        help="Gradient accumulation steps.")
-    parser.add_argument("--max_train_samples", type=int, default=None, help="훈련 샘플 최대 개수")
-    parser.add_argument("--max_eval_samples", type=int, default=None, help="평가 샘플 최대 개수")
-    
-    args = parser.parse_args()
-    
-    # Set up output directory
-    if not os.path.exists(args.output_dir):
-        os.makedirs(args.output_dir)
+    # Make output dir
+    os.makedirs(args.output_dir, exist_ok = True)
     
     # Setup logging
     setup_logging()
-    
-    # Set CUDA, GPU
-    device = torch.device("cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
-    args.device = device
-    args.n_gpu = torch.cuda.device_count()
     
     # Set seed
     set_seed(args.seed)
@@ -417,7 +390,7 @@ def main():
         config=config,
     )
     
-    model.to(args.device)
+    model.to(model, device= args.device)
     
     logger.info("Training/evaluation parameters %s", args)
     
@@ -434,6 +407,7 @@ def main():
             
         logger.info(f"Saving model to {args.output_dir}")
         model_to_save = model.module if hasattr(model, "module") else model
+        assert isinstance(model_to_save, ElectraForSequenceClassification)
         model_to_save.save_pretrained(args.output_dir)
         tokenizer.save_pretrained(args.output_dir)
     
@@ -454,7 +428,7 @@ def main():
                 mask_token="[MASK]",
                 do_lower_case=True
             )
-            model.to(args.device)
+            model.to(model, device=args.device)
 
         result = evaluate(args, model, tokenizer, prefix="")
         results.update(result)

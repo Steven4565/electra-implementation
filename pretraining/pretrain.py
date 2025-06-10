@@ -35,12 +35,13 @@ logger = logging.getLogger(__name__)
 @dataclass
 class Args:
     # Data settings
-    data_dir: Str = 'data/text_data' # type: ignore
+    data_dir: Str = 'data/preprocessed_examples' # type: ignore
+    tokenizer_path: Str = 'tokenizer-trained.json' # type: ignore
     data_vocab_file: Str = 'data/vocab.txt' # type: ignore
     data_max_seq_length: Int = 128 # type: ignore
     
     # Output settings
-    output_dir: Str = 'output' # type: ignore
+    output_dir: Str = 'output/electra_pretrain' # type: ignore
     
     # GPU settings
     gpu: Int = 0                              # type: ignore
@@ -110,11 +111,10 @@ def train(rank, args):
     #######################
     ## dataset
 
-    saved_tokenizer_dir = "tokenizer-trained.json"
+    saved_tokenizer_dir = args.tokenizer_path
     tokenizer = load_tokenizer(saved_tokenizer_dir)
     vocab_size = len(tokenizer.vocab)
 
-    # TODO: fix file pathing mismatch
     logger.info(f"Loading dataset from {args.data_dir}")
     dataset = example_dataset_disk_loader()
 
@@ -262,9 +262,7 @@ def train(rank, args):
         final_save_path = f'{args.output_dir}/ckpt/final'
         os.makedirs(final_save_path, exist_ok=True)
         discriminator.electra.save_pretrained(final_save_path)
-        # tokenizer.save_pretrained(final_save_path)
-        # Manually copy the vocab file to the final save path
-        shutil.copyfile(args.data_vocab_file, os.path.join(final_save_path, "vocab.txt"))
+        # TODO: copy tokenizer file
         logger.info(f"Training complete. Final model saved to {final_save_path}. Vocab file copied.")
 
 ########################################################################################################

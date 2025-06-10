@@ -45,23 +45,13 @@ python pretraining/create_examples_ds.py --dev
 ### Pretraining
 
 ```bash
-python pretraining/pretrain.py \
-  --data_dir data/text_data \
-  --data_vocab_file data/vocab.txt \
-  --output_dir output/electra_pretrain
+python pretraining/pretrain.py
 ```
 
 ### Evaluation on GLUE Tasks
-
+Configure config inside `main` function in `eval_glue.py` first
 ```bash
-python examples/eval_glue.py \
-  --data_dir data/glue_cola \
-  --model_name_or_path output/ckpt/final \
-  --task_name cola \
-  --do_train \
-  --do_eval \
-  --output_dir output/electra_TASK \
-  --tokenizer_name ./tokenizer-trained.json
+python examples/eval_glue.py
 
 ## Pretrained Models
 
