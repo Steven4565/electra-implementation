@@ -52,6 +52,7 @@ python pretraining/pretrain.py
 Configure config inside `main` function in `eval_glue.py` first
 ```bash
 python examples/eval_glue.py
+```
 
 ## Pretrained Models
 
