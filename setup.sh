@@ -11,8 +11,8 @@ echo "Downloading model files"
 python3 -m gdown --folder --id 1tASJhesjZEL9rbKuVqOXCVjcd8f2IryI || exit 1
 
 echo "Moving model files"
-mkdir -p ./output/ckpt/final
-mv ./PretrainedWeights/* ./output/ckpt/final
+mkdir -p ./output/electra_pretrain/ckpt/final
+mv ./PretrainedWeights/* ./output/electra_pretrain/ckpt/final
 rm -r ./PretrainedWeights/
 
 echo "Setup complete"
