@@ -74,7 +74,7 @@ class Args:
     num_train_epochs: float = 3.0
     max_steps: int = -1
     warmup_steps: int = 0
-    logging_steps: int = 500
+    logging_steps: int = 50
     save_steps: int = 500
     no_cuda: bool = False
     seed: int = 42
@@ -170,6 +170,8 @@ def train(args, train_dataset, model, tokenizer):
         args.num_train_epochs = args.max_steps // (len(train_dataloader) // args.gradient_accumulation_steps) + 1
     else:
         t_total = len(train_dataloader) // args.gradient_accumulation_steps * args.num_train_epochs
+
+    print(t_total)
     
     # Add warmup steps if not specified
     if args.warmup_steps == 0:
@@ -390,7 +392,7 @@ def main():
         config=config,
     )
     
-    model.to(model, device= args.device)
+    model.to(device= args.device) # type: ignore
     
     logger.info("Training/evaluation parameters %s", args)
     
@@ -428,7 +430,7 @@ def main():
                 mask_token="[MASK]",
                 do_lower_case=True
             )
-            model.to(model, device=args.device)
+            model.to(device=args.device) # type: ignore
 
         result = evaluate(args, model, tokenizer, prefix="")
         results.update(result)
