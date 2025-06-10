@@ -5,14 +5,14 @@ This is a PyTorch implementation of the ELECTRA model from the paper [ELECTRA: P
 
 ## TODO: 
 - Clean hard coded files
-- Generate dataset and save to hf
+- Modify setup.sh for pretraining
 
 ## Usage
 
 ### Installation
-
+Currently only for finetuning
 ```bash
-pip install -r requirements.txt
+bash setup.sh
 ```
 
 ### Download datasets

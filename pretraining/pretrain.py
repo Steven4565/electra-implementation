@@ -37,7 +37,6 @@ class Args:
     # Data settings
     data_dir: Str = 'data/preprocessed_examples' # type: ignore
     tokenizer_path: Str = 'tokenizer-trained.json' # type: ignore
-    data_vocab_file: Str = 'data/vocab.txt' # type: ignore
     data_max_seq_length: Int = 128 # type: ignore
     
     # Output settings

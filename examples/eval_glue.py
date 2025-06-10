@@ -60,7 +60,7 @@ class Args:
     n_gpu: int
     output_mode: str = ""
     config_name: str = ""
-    tokenizer_name: str = "./tokenizer-trained.json"
+    tokenizer_name: str = "./output/ckpt/final/tokenizer-trained.json"
     max_seq_length: int = 128
     do_train: bool = True
     do_eval: bool = True
