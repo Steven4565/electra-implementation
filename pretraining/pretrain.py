@@ -6,6 +6,7 @@ import random
 import time
 from dataclasses import dataclass
 import shutil
+import wandb
 
 import numpy as np
 import torch
@@ -28,6 +29,10 @@ from pretraining.tokenizer import load_tokenizer
 from torch.multiprocessing.spawn import spawn
 
 logger = logging.getLogger(__name__)
+
+wandb.init(
+    project="electra-project"
+)
 
 ########################################################################################################
 ## args
@@ -230,6 +235,7 @@ def train(rank, args):
         scaler.update()
         scheduler.step()
 
+
         metrics = {
             'step': (step, '{:8d}'),
             'loss': (loss.item(), '{:8.5f}'),
@@ -241,6 +247,7 @@ def train(rank, args):
             'steps': (steps_s, '{:4.1f}/s'),
             'eta': (eta_m, '{:4d}m'),
         }
+        wandb.log(metrics)
 
         if step % args.step_log == 0:
             sep = ' ' * 2
